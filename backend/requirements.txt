@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+groq
+deepgram-sdk
+python-dotenv
+websockets
+jinja2
+python-multipart
+elevenlabs
+SpeechRecognition
+pyaudio
+pygame
+pyttsx3
