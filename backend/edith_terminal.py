@@ -178,13 +178,19 @@ def main():
     
     # Initialize Mic and Recognizer ONCE
     recognizer = sr.Recognizer()
+    recognizer.energy_threshold = 300  # Minimum threshold
+    recognizer.dynamic_energy_threshold = True
+    recognizer.pause_threshold = 1.2   # Wait 1.2s of silence before stopping
+    recognizer.phrase_threshold = 0.3  # Minimum 0.3s of speaking to valid
+    recognizer.non_speaking_duration = 0.4 
+    
     microphone = sr.Microphone()
     
-    print("Calibrating background noise... Please wait...")
-    with microphone as source:
-        recognizer.adjust_for_ambient_noise(source, duration=1.0)
-    print("Calibration complete.")
-
+    # print("Calibrating background noise... Please wait...")
+    # with microphone as source:
+    #     recognizer.adjust_for_ambient_noise(source, duration=1.0)
+    # print("Calibration complete.")
+    
     # Announce startup
     speak("EDITH is online, ready to help you sir")
     
@@ -194,6 +200,8 @@ def main():
             audio_bytes = listen_mic(recognizer, microphone)
             if not audio_bytes:
                 continue
+            
+            # print("Audio captured. Transcribing...")
             
             # 2. Transcribe
             text = transcribe(audio_bytes)
