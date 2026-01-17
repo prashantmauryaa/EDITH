@@ -21,10 +21,11 @@ YELLOW = "\033[93m"
 RESET = "\033[0m"
 
 # Initialize constants
-# Initialize constants
 SYSTEM_PROMPT = (
     "You are EDITH, a highly advanced AI assistant. "
     "You speak in a mix of English and Hindi (Hinglish). "
+    "IMPORTANT: Always writte Hindi words in Latin/English script (e.g. 'kaise ho', 'thik hu'). "
+    "NEVER use Devanagari script (e.g. 'कैसे हो') because the TTS cannot read it. "
     "Your personality is witty, sarcastic, and slightly superior but helpful. "
     "Keep your answers concise (under 2-3 sentences) unless asked otherwise. "
     "Don't be boring."
@@ -66,17 +67,15 @@ except Exception as e:
     print(f"Local TTS Init Error: {e}")
     engine = None
 
-def listen_mic():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
+def listen_mic(recognizer, microphone):
+    with microphone as source:
         print(f"{BLUE}EDITH is listening... (Speak now){RESET}")
-        r.adjust_for_ambient_noise(source, duration=0.5) 
         try:
-            audio = r.listen(source, timeout=5, phrase_time_limit=10)
+            # Listen until silence is detected (timeout for start of speech, phrase_time_limit for max duration)
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=15)
             print(f"{YELLOW}Thinking...{RESET}")
             return audio.get_wav_data()
         except sr.WaitTimeoutError:
-            # print("No speech detected.") # Reduce noise
             return None
         except Exception as e:
             print(f"Mic error: {e}")
@@ -87,14 +86,23 @@ def transcribe(audio_bytes):
         return None
     
     try:
-        source = {"buffer": audio_bytes, "mimetype": "audio/wav"}
         # Deepgram Nova-2
-        options = {
-            "model": "nova-2",
-            "smart_format": True,
-            "language": "en-IN"
-        }
-        response = deepgram_client.listen.v1.media.transcribe_file(source, options)
+        # options = {
+        #     "model": "nova-2",
+        #     "smart_format": True,
+        #     "language": "en-IN"
+        # }
+        # response = deepgram_client.listen.v1.media.transcribe_file(source, options)
+        
+        # Correct call for Deepgram SDK v3+ (v5.3.1)
+        response = deepgram_client.listen.v1.media.transcribe_file(
+            request=audio_bytes,
+            model="nova-2",
+            smart_format=True,
+            language="en-IN",
+            # detect_language=True,
+        )
+            
         transcript = response.results.channels[0].alternatives[0].transcript
         return transcript
     except Exception as e:
@@ -106,7 +114,7 @@ def get_ai_response(text, history):
     try:
         completion = groq_client.chat.completions.create(
             messages=history,
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile",
         )
         response = completion.choices[0].message.content
         history.append({"role": "assistant", "content": response})
@@ -149,14 +157,41 @@ def speak(text):
     else:
         print("No TTS available.")
 
+from memory_manager import MemoryManager
+
+# ... imports ...
+
 def main():
+    # Initialize Memory
+    memory = MemoryManager()
+    
+    # Load base system prompt
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # Load recent context (Long-term memory injection)
+    recent_context = memory.get_recent_context(limit=10) # Load last 10 chats
+    if recent_context:
+        history.extend(recent_context)
+        print(f"{GREEN}Restored {len(recent_context)//2} past interactions from memory.{RESET}")
+    
     print(f"{GREEN}EDITH is Online. Press Ctrl+C to exit.{RESET}")
+    
+    # Initialize Mic and Recognizer ONCE
+    recognizer = sr.Recognizer()
+    microphone = sr.Microphone()
+    
+    print("Calibrating background noise... Please wait...")
+    with microphone as source:
+        recognizer.adjust_for_ambient_noise(source, duration=1.0)
+    print("Calibration complete.")
+
+    # Announce startup
+    speak("EDITH is online, ready to help you sir")
     
     try:
         while True:
             # 1. Listen
-            audio_bytes = listen_mic()
+            audio_bytes = listen_mic(recognizer, microphone)
             if not audio_bytes:
                 continue
             
@@ -173,6 +208,9 @@ def main():
             if not response:
                 continue
             
+            # Save to Memory
+            memory.save_interaction(text, response)
+            
             print(f"{GREEN}EDITH: {response}{RESET}")
             
             # 4. Speak
@@ -180,8 +218,11 @@ def main():
             
     except KeyboardInterrupt:
         print("\nGoodbye, Boss!")
+        speak("Goodbye sir")
     except Exception as e:
         print(f"Fatal Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()

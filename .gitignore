@@ -1,0 +1,24 @@
+# Environment variables
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Memory / Data
+edith_memory.json
+backend/edith_memory.json
