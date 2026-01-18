@@ -24,9 +24,11 @@ RESET = "\033[0m"
 SYSTEM_PROMPT = (
     "You are EDITH, a highly advanced AI assistant. "
     "You speak in a mix of English and Hindi (Hinglish). "
-    "IMPORTANT: Always writte Hindi words in Latin/English script (e.g. 'kaise ho', 'thik hu'). "
+    "IMPORTANT: Always write Hindi words in Latin/English script (e.g. 'kaise ho', 'thik hu'). "
     "NEVER use Devanagari script (e.g. 'कैसे हो') because the TTS cannot read it. "
-    "Your personality is witty, sarcastic, and slightly superior but helpful. "
+    "Do NOT add 'ji' at the end of sentences (e.g. avoid 'ha ji', 'nahi ji'). "
+    "Reference the user as 'Boss' or 'Sir'. "
+    "Your personality is witty, professional, and slightly superior but helpful (Tony Stark style). "
     "Keep your answers concise (under 2-3 sentences) unless asked otherwise. "
     "Don't be boring."
 )
@@ -99,8 +101,8 @@ def transcribe(audio_bytes):
             request=audio_bytes,
             model="nova-2",
             smart_format=True,
-            language="en-IN",
-            # detect_language=True,
+            # language="en-IN",
+            detect_language=True,
         )
             
         transcript = response.results.channels[0].alternatives[0].transcript
@@ -178,18 +180,18 @@ def main():
     
     # Initialize Mic and Recognizer ONCE
     recognizer = sr.Recognizer()
-    recognizer.energy_threshold = 300  # Minimum threshold
+    recognizer.energy_threshold = 500  # Increased from 300 to reduce light noise sensitivity (fan, breathing)
     recognizer.dynamic_energy_threshold = True
-    recognizer.pause_threshold = 1.2   # Wait 1.2s of silence before stopping
-    recognizer.phrase_threshold = 0.3  # Minimum 0.3s of speaking to valid
+    recognizer.pause_threshold = 1.2
+    recognizer.phrase_threshold = 0.3
     recognizer.non_speaking_duration = 0.4 
     
     microphone = sr.Microphone()
     
-    # print("Calibrating background noise... Please wait...")
-    # with microphone as source:
-    #     recognizer.adjust_for_ambient_noise(source, duration=1.0)
-    # print("Calibration complete.")
+    print(f"{YELLOW}Calibrating background noise... Please remain SILENT for 1 second...{RESET}")
+    with microphone as source:
+        recognizer.adjust_for_ambient_noise(source, duration=1.0)
+    print(f"{GREEN}Calibration complete. Energy Threshold: {recognizer.energy_threshold}{RESET}")
     
     # Announce startup
     speak("EDITH is online, ready to help you sir")
@@ -206,7 +208,7 @@ def main():
             # 2. Transcribe
             text = transcribe(audio_bytes)
             if not text or not text.strip():
-                print("Could not understand audio.")
+                print(f"{YELLOW}No speech detected in audio.{RESET}")
                 continue
             
             print(f"{BLUE}You said: {text}{RESET}")
